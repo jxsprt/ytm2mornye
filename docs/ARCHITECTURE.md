@@ -75,7 +75,7 @@ flowchart LR
 | 1 | **Resolve** | `str` → `PlaylistRef` | Accepts `music.youtube.com/playlist?list=…`, `youtube.com/playlist?list=…`, bare IDs, `LM`, and `OLAK5uy_…`. Strips `si=` and other tracking params. Rejects watch URLs that have no `list=`. |
 | 2 | **Fetch** | `PlaylistRef` → raw `dict` | `YTMusic().get_playlist(id, limit=None)` pages through the whole playlist. Album IDs go through `get_album_browse_id` → `get_album`. Anonymous client for public playlists, authenticated client for private ones and `LM`. |
 | 3 | **Normalize** | raw → `Playlist` + `list[TrackRecord]` | Maps ytmusicapi fields onto the data model (§4). Joins multiple artists, keeps the primary artist separately, and converts `duration_seconds` to ms. |
-| 4 | **Classify & filter** | `TrackRecord` → `TrackRecord` (+ `kind`, `skip_reason`) | Uses `videoType`: `MUSIC_VIDEO_TYPE_ATV` → `song`, `…_OMV` → `official_video`, `…_UGC` → `user_upload`, `…_PODCAST_EPISODE` → `episode`. Also drops `isAvailable == False`. Applies the `include` policy and cleans titles (§5). |
+| 4 | **Classify & filter** | `TrackRecord` → `TrackRecord` (+ `kind`, `skip_reason`) | Uses `videoType`: `MUSIC_VIDEO_TYPE_ATV` → `song`, `…_OMV` → `official_video`, `…_UGC` → `user_upload`, `…_PODCAST_EPISODE` → `episode`, `…_PRIVATELY_OWNED_TRACK` → `own_upload` (the user's own uploaded files). `UGC` is an InnerTube value that ytmusicapi passes through but doesn't name, so any unknown value maps to `unknown`, which the default policy excludes. Also drops `isAvailable == False`. Applies the `include` policy and cleans titles (§5). |
 | 5 | **Diff** | records + previous snapshot → `PlaylistDiff` | Track identity is `videoId` (and `setVideoId` for duplicates). Produces `added`, `removed`, `unchanged`, `previously_unresolved`. |
 | 6 | **Export** | records → CSV file | Writes the format Mornye's `--csv` reader recognizes (§6). One file per playlist, in a per-run work dir. |
 | 7 | **Hand off** | CSV + `MornyeSettings` → Mornye run summary | Through the `MornyeRunner` port (§8). Default adapter runs the `mornye` CLI with `--json`. |
@@ -131,7 +131,7 @@ TrackRecord
   artists: list[str]
   album: str | None
   duration_ms: int | None
-  kind: song | official_video | user_upload | episode | unknown
+  kind: song | official_video | user_upload | own_upload | episode | unknown
   available: bool
   explicit: bool | None
   skip_reason: str | None     # "unavailable", "filtered:user_upload", …
